@@ -3,7 +3,6 @@ import numpy as np
 from pathlib import Path
 from typing import List, Dict, Union
 from PIL import Image
-import io
 import json
 
 
@@ -64,11 +63,13 @@ class ImageDataset:
         # Load existing progress.
         if self.progress_filepath.exists():
             data = json.loads(self.progress_filepath.read_text(encoding="utf-8"))
-            for key in data:
-                w = Wnid(data[key]["object_type"], data[key]["wnid"], data[key]["count"])
+            self.scene_index = data["scene_index"]
+            for key in data["progress"]:
+                w = Wnid(data["progress"][key]["object_type"], data["progress"][key]["wnid"], data["progress"][key]["count"])
                 self.object_types.update({key: w})
         # Create new progress.
         else:
+            self.scene_index = 0
             # Parse the AI2Thor/wnid spreadsheet.
             csv = Path("object_types.csv").read_text()
             for line in csv.split("\n"):
@@ -113,7 +114,7 @@ class ImageDataset:
         # Save the image.
         Image.fromarray(image).resize((256, 256), Image.LANCZOS).save(str(dest.resolve()))
 
-    def run(self, grid_size: float = 0.25, images_per_position: int = 10, pixel_percent_threshold: float = 0.05) -> None:
+    def run(self, grid_size: float = 0.25, images_per_position: int = 1, pixel_percent_threshold: float = 0.01) -> None:
         """
         Generate an image dataset.
 
@@ -124,27 +125,18 @@ class ImageDataset:
 
         if not self.root_dir.exists():
             self.root_dir.mkdir(parents=True)
-
-        scene_index = 0
         # Load a new scene.
-        controller = Controller(scene=ImageDataset.SCENES[scene_index], gridSize=grid_size, renderObjectImage=True)
-        first_time_only = True
+        controller = Controller(scene=ImageDataset.SCENES[self.scene_index], gridSize=grid_size, renderObjectImage=True)
+
         while not self.done():
-            # Load a new scene.
-            if first_time_only:
-                first_time_only = False
-            else:
-                controller.reset(scene=ImageDataset.SCENES[scene_index])
-
-            # Next scene.
-            scene_index += 1
-            if scene_index >= len(ImageDataset.SCENES):
-                scene_index = 0
-
             event = controller.step(action='GetReachablePositions')
             positions = event.metadata["actionReturn"]
 
             for position in positions:
+                # Reposition the objects.
+                controller.reset(scene=ImageDataset.SCENES[self.scene_index])
+                controller.step(action='InitialRandomSpawn', randomSeed=0, forceVisible=True, numPlacementAttempts=5)
+
                 # Teleport to the position.
                 controller.step(action='Teleport', x=position["x"], y=position["y"], z=position["z"])
                 for i in range(images_per_position):
@@ -177,6 +169,10 @@ class ImageDataset:
                                             else:
                                                 self.save_image(event.frame, obj["name"], self.object_types[obj_type].count, self.object_types[obj_type].wnid)
                                                 self.object_types[obj_type].count += 1
+            # Next scene.
+            self.scene_index += 1
+            if self.scene_index >= len(ImageDataset.SCENES):
+                self.scene_index = 0
 
     def end(self) -> None:
         """
@@ -186,7 +182,8 @@ class ImageDataset:
         progress = dict()
         for object_type in self.object_types:
             progress.update({object_type: self.object_types[object_type].__dict__})
-        self.progress_filepath.write_text(json.dumps(progress), encoding="utf-8")
+        save_file = {"scene_index": self.scene_index, "progress": progress}
+        self.progress_filepath.write_text(json.dumps(save_file), encoding="utf-8")
 
 
 if __name__ == "__main__":
