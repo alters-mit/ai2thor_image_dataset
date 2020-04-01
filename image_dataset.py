@@ -1,7 +1,7 @@
 from ai2thor.controller import Controller
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 from PIL import Image
 import json
 
@@ -10,14 +10,14 @@ class Wnid:
     """
     The wnid, and the number of images per wnid.
     """
-    def __init__(self, object_type: str, wnid: str, count: int = 0):
+    def __init__(self, wnid: str, count: int = 0,  object_types: List[str] = []):
         """
-        :param object_type: The AI2Thor object type.
+        :param object_types: The AI2Thor object types.
         :param wnid: The ImageNet wnid.
         :param count: The current count of images.
         """
 
-        self.object_type = object_type
+        self.object_types = object_types
         self.wnid = wnid
         self.count = count
 
@@ -59,14 +59,14 @@ class ImageDataset:
         self.train = train
         self.val = val
 
-        self.object_types: Dict[str, Wnid] = {}
+        self.wnids: Dict[str, Wnid] = {}
         # Load existing progress.
         if self.progress_filepath.exists():
             data = json.loads(self.progress_filepath.read_text(encoding="utf-8"))
             self.scene_index = data["scene_index"]
             for key in data["progress"]:
-                w = Wnid(data["progress"][key]["object_type"], data["progress"][key]["wnid"], data["progress"][key]["count"])
-                self.object_types.update({key: w})
+                w = Wnid(object_types=data["progress"][key]["object_types"], wnid=data["progress"][key]["wnid"], count=data["progress"][key]["count"])
+                self.wnids.update({key: w})
         # Create new progress.
         else:
             self.scene_index = 0
@@ -76,18 +76,21 @@ class ImageDataset:
                 if line == "":
                     continue
                 row = line.split(",")
-                self.object_types.update({row[0]: Wnid(object_type=row[0], wnid=row[1])})
+                wnid = row[1]
+                if wnid not in self.wnids:
+                    self.wnids.update({wnid: Wnid(wnid=wnid)})
+                self.wnids[wnid].object_types.append(row[0])
 
-        self.train_per_wnid = self.train / len(self.object_types)
-        self.val_per_wnid = self.val / len(self.object_types)
+        self.train_per_wnid = self.train / len(self.wnids)
+        self.val_per_wnid = self.val / len(self.wnids)
 
     def done(self) -> bool:
         """
         Returns true if the dataset is done.
         """
 
-        for object_type in self.object_types:
-            if self.object_types[object_type].count < self.train_per_wnid + self.val_per_wnid:
+        for object_type in self.wnids:
+            if self.wnids[object_type].count < self.train_per_wnid + self.val_per_wnid:
                 return False
         return True
 
@@ -114,6 +117,27 @@ class ImageDataset:
         # Save the image.
         Image.fromarray(image).resize((256, 256), Image.LANCZOS).save(str(dest.resolve()))
 
+    def increment_scene_index(self) -> None:
+        """
+        Increment the scene index value and loop to 0 if needed.
+        """
+
+        self.scene_index += 1
+        if self.scene_index >= len(ImageDataset.SCENES):
+            self.scene_index = 0
+
+    def get_wnid(self, object_type: str) -> Optional[Wnid]:
+        """
+        Returns the wnid associated with the AI2Thor object type.
+
+        :param object_type: The AI2Thor object type.
+        """
+
+        for w in self.wnids:
+            if object_type in self.wnids[w].object_types:
+                return self.wnids[w]
+        return None
+
     def run(self, grid_size: float = 0.25, images_per_position: int = 1, pixel_percent_threshold: float = 0.01) -> None:
         """
         Generate an image dataset.
@@ -131,6 +155,10 @@ class ImageDataset:
         while not self.done():
             event = controller.step(action='GetReachablePositions')
             positions = event.metadata["actionReturn"]
+
+            if positions is None:
+                self.increment_scene_index()
+                continue
 
             for position in positions:
                 # Reposition the objects.
@@ -158,21 +186,20 @@ class ImageDataset:
                                 if percent > pixel_percent_threshold:
                                     for obj in event.metadata["objects"]:
                                         if obj["objectId"] == object_colors[object_color]:
-                                            obj_type = obj["objectType"]
+                                            wnid = self.get_wnid(obj["objectType"])
                                             # If this is an object type we don't care about, skip it.
-                                            if obj_type not in self.object_types:
+                                            if wnid is None:
                                                 continue
                                             # If we already have enough images in this category, skip it.
-                                            elif self.object_types[obj_type].count >= self.train_per_wnid + self.val_per_wnid:
+                                            elif wnid.count >= self.train_per_wnid + self.val_per_wnid:
                                                 continue
                                             # Save the image.
                                             else:
-                                                self.save_image(event.frame, obj["name"], self.object_types[obj_type].count, self.object_types[obj_type].wnid)
-                                                self.object_types[obj_type].count += 1
+                                                self.save_image(event.frame, obj["name"], wnid.count, wnid.wnid)
+                                                w = wnid.wnid
+                                                self.wnids[w].count += 1
             # Next scene.
-            self.scene_index += 1
-            if self.scene_index >= len(ImageDataset.SCENES):
-                self.scene_index = 0
+            self.increment_scene_index()
 
     def end(self) -> None:
         """
@@ -180,8 +207,8 @@ class ImageDataset:
         """
 
         progress = dict()
-        for object_type in self.object_types:
-            progress.update({object_type: self.object_types[object_type].__dict__})
+        for wnid in self.wnids:
+            progress.update({wnid: self.wnids[wnid].__dict__})
         save_file = {"scene_index": self.scene_index, "progress": progress}
         self.progress_filepath.write_text(json.dumps(save_file), encoding="utf-8")
 

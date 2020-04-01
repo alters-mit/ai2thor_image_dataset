@@ -1,9 +1,6 @@
 Apple,n07739125
-AppleSliced,n07739125
 Tomato,n07734017
-TomatoSliced,n07734017
 Bread,n07679356
-BreadSliced,n07679356
 Sink,n02998563
 Pot,n03990474
 Pan,n03880323
@@ -28,18 +25,10 @@ CounterTop,n03118245
 GarbageCan,n02747177
 Omelette,n07842753
 EggShell,n09432430
-EggCracked,n09432430
-StoveKnob,n03626014
 Container,n03094503
 Cup,n03147509
 ButterKnife,n02928049
-PotatoSliced,n07710616
-MugFilled,n03797390
-BowlFilled,n00104409
 Statue,n04306847
-LettuceSliced,n07723559
-ContainerFull,n03094503
-BowlDirty,n00104409
 Sandwich,n07695965
 Television,n04404412
 HousePlant,n13083023
@@ -51,7 +40,6 @@ Laptop,n03642806
 RemoteControl,n04074963
 Box,n00135148
 Newspaper,n03822171
-TissueBoxEmpty,n15074962
 PaintingHanger,n00609236
 KeyChain,n03615037
 Dirt,n07223811
@@ -65,7 +53,6 @@ Bathtub,n02808440
 ToiletPaper,n15075141
 ToiletPaperHanger,n15075141
 SoapBottle,n03677231
-SoapBottleFilled,n03677231
 SoapBar,n02797455
 ShowerDoor,n04209239
 SprayBottle,n02682922
