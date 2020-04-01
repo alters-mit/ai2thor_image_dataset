@@ -10,7 +10,7 @@ class Wnid:
     """
     The wnid, and the number of images per wnid.
     """
-    def __init__(self, wnid: str, count: int = 0,  object_types: List[str] = []):
+    def __init__(self, wnid: str, object_types: List[str], count: int = 0):
         """
         :param object_types: The AI2Thor object types.
         :param wnid: The ImageNet wnid.
@@ -78,7 +78,7 @@ class ImageDataset:
                 row = line.split(",")
                 wnid = row[1]
                 if wnid not in self.wnids:
-                    self.wnids.update({wnid: Wnid(wnid=wnid)})
+                    self.wnids.update({wnid: Wnid(wnid=wnid, object_types=[])})
                 self.wnids[wnid].object_types.append(row[0])
 
         self.train_per_wnid = self.train / len(self.wnids)
