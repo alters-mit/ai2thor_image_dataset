@@ -34,6 +34,8 @@ python3 image_dataset.py [ARGUMENTS]
   - This means that the same image may be saved multiple times, e.g. an image with a desk and a chair can be saved as `desk_0000.jpg` and `chair_0000.jpg`.
   - Images are saved to `train/` and `val/` subdirectories with "wnid" (or ImageNet synset ID) names, using the file `object_types.csv`, which maps the AI2-Thor object type to wnid.
   - The target number of objects per wnid is: `total number of images / total number of wnids`.
+- After 100 steps, initialize a new scene and repeat.
+- It is possible to stop and restart `image_dataset.py`. When stopped, it will write a `progress.json` save file to the dataset output directory. This file contains the number of images per wnid that have been generated so far, and the `scene_index`, or the index in the array of scenes.
 
 ## Comparison to TDW (`single_object.py`)
 

@@ -11,11 +11,12 @@ class Wnid:
     """
     The wnid, and the number of images per wnid.
     """
+
     def __init__(self, wnid: str, object_types: List[str], count: int = 0):
         """
         :param object_types: The AI2Thor object types.
         :param wnid: The ImageNet wnid.
-        :param count: The current count of images.
+        :param count: The current number of images in this wnid that have been saved to disk.
         """
 
         self.object_types = object_types
@@ -31,6 +32,7 @@ class ImageDataset:
     RNG = np.random.RandomState(0)
     NUM_PIXELS = 300.0 * 300
 
+    # Every valid AI2-Thor scene name.
     SCENES: List[str] = []
     for i in range(1, 31):
         SCENES.append(f"FloorPlan{i}")
@@ -41,6 +43,7 @@ class ImageDataset:
     for i in range(401, 431):
         SCENES.append(f"FloorPlan{i}")
 
+    # The avatar will randomly choose one of these actions per step.
     ACTIONS = ["RotateRight", "RotateLeft", "LookUp", "LookDown", "MoveAhead", "MoveRight", "MoveLeft", "MoveBack"]
 
     def __init__(self, root_dir: Union[str, Path], train: int = 1300000, val: int = 50000):
@@ -99,6 +102,7 @@ class ImageDataset:
         """
 
         for object_type in self.wnids:
+            # If any wnid is missing images, the dataset is not done.
             if self.wnids[object_type].count < self.train_per_wnid + self.val_per_wnid:
                 return False
         return True
@@ -122,15 +126,15 @@ class ImageDataset:
         if not dest.exists():
             dest.mkdir(parents=True)
 
-        dest = dest.joinpath(f"{object_name}_{str(object_count).zfill(4)}.jpg")
-        # Save the image.
-        Image.fromarray(image).resize((256, 256), Image.LANCZOS).save(str(dest.resolve()))
+        # Resize the image and save it.
+        Image.fromarray(image).resize((256, 256), Image.LANCZOS).save(
+            str(dest.joinpath(f"{object_name}_{str(object_count).zfill(4)}.jpg").resolve()))
         # Increment the progress bar.
         self.pbar.update(1)
 
     def increment_scene_index(self) -> None:
         """
-        Increment the scene index value and loop to 0 if needed.
+        Increment the scene index value and loop back to 0 if needed.
         """
 
         self.scene_index += 1
@@ -155,7 +159,7 @@ class ImageDataset:
 
         :param grid_size: The AI2Thor room grid size (see AI2Thor documentation).
         :param images_per_scene: Capture this many images before loading a new scene.
-        :param pixel_percent_threshold: Objects must occupy this percentage of pixels in the segmentation color pass or greater to be saved to disk as an image.
+        :param pixel_percent_threshold: Objects must occupy >= this percentage of pixels in the segmentation mask to be saved to disk as an image.
         """
 
         if not self.root_dir.exists():
@@ -164,6 +168,7 @@ class ImageDataset:
         controller = Controller(scene=ImageDataset.SCENES[self.scene_index], gridSize=grid_size, renderObjectImage=True)
 
         while not self.done():
+            # Load the next scene and populate it.
             controller.reset(scene=ImageDataset.SCENES[self.scene_index])
             controller.step(action='InitialRandomSpawn', randomSeed=0, forceVisible=True, numPlacementAttempts=5)
 
@@ -172,7 +177,7 @@ class ImageDataset:
                 event = controller.step(action=ImageDataset.ACTIONS[
                     ImageDataset.RNG.randint(0, len(ImageDataset.ACTIONS))])
 
-                # Segmentation colors to object IDs map.
+                # Get the segmentation colors to object IDs map.
                 object_colors = event.color_to_object_id
 
                 # Get the unique colors in the image and how many pixels per color.
@@ -181,6 +186,7 @@ class ImageDataset:
                                            axis=0)
                 for color, count in zip(colors, counts):
                     for object_color in object_colors:
+                        # Match an object to the segmentation mask.
                         if object_color == tuple(color):
                             # Save an image tagged as an object if there are enough pixels in the segmentation pass.
                             percent = count / ImageDataset.NUM_PIXELS
@@ -207,11 +213,13 @@ class ImageDataset:
         End the script for now. Save a progress file. This file will be used to avoid overwriting existing progress.
         """
 
+        # Create a "save file".
         progress = dict()
         for wnid in self.wnids:
             progress.update({wnid: self.wnids[wnid].__dict__})
         save_file = {"scene_index": self.scene_index, "progress": progress}
         self.progress_filepath.write_text(json.dumps(save_file), encoding="utf-8")
+
         # Stop the progress bar.
         self.pbar.close()
 
