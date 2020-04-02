@@ -156,9 +156,11 @@ class ImageDataset:
             event = controller.step(action='GetReachablePositions')
             positions = event.metadata["actionReturn"]
 
-            if positions is None:
+            while positions is None:
                 self.increment_scene_index()
-                continue
+                controller.reset(scene=ImageDataset.SCENES[self.scene_index])
+                event = controller.step(action='GetReachablePositions')
+                positions = event.metadata["actionReturn"]
 
             for position in positions:
                 # Reposition the objects.
