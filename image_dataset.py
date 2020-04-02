@@ -107,12 +107,12 @@ class ImageDataset:
                 return False
         return True
 
-    def save_image(self, image: np.array, object_name: str, count: int, wnid: str) -> None:
+    def save_image(self, image: np.array, object_type: str, count: int, wnid: str) -> None:
         """
         Save an image.
 
         :param image: The image as a numpy array.
-        :param object_name: The name of the object.
+        :param object_type: The typwe of the object.
         :param count: Append this number to the filename.
         :param wnid: The wnid directory.
         """
@@ -122,13 +122,13 @@ class ImageDataset:
             object_count = count
         else:
             dest = self.root_dir.joinpath("val").joinpath(wnid)
-            object_count = count - self.train_per_wnid
+            object_count = count - int(self.train_per_wnid)
         if not dest.exists():
             dest.mkdir(parents=True)
 
         # Resize the image and save it.
         Image.fromarray(image).resize((256, 256), Image.LANCZOS).save(
-            str(dest.joinpath(f"{object_name}_{str(object_count).zfill(4)}.jpg").resolve()))
+            str(dest.joinpath(f"{object_type}_{str(object_count).zfill(4)}.jpg").resolve()))
         # Increment the progress bar.
         self.pbar.update(1)
 
@@ -202,7 +202,7 @@ class ImageDataset:
                                             continue
                                         # Save the image.
                                         else:
-                                            self.save_image(event.frame, obj["name"], wnid.count, wnid.wnid)
+                                            self.save_image(event.frame, obj["objectType"], wnid.count, wnid.wnid)
                                             w = wnid.wnid
                                             self.wnids[w].count += 1
             # Next scene.
