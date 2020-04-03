@@ -225,7 +225,7 @@ class ImageDataset:
                     if dt > 3:
                         num_slow_images += 1
                     # If there haven't been new images in a while, accept all images.
-                    if num_slow_images >= 1000:
+                    if num_slow_images >= 100:
                         pixel_percent_threshold = 0
                         accept_all_images = True
                         print("There haven't been new images in a while... "

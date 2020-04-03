@@ -35,7 +35,7 @@ python3 image_dataset.py [ARGUMENTS]
   - Images are saved to `train/` and `val/` subdirectories with "wnid" (or ImageNet synset ID) names, using the file `object_types.csv`, which maps the AI2-Thor object type to wnid.
   - The target number of objects per wnid is: `total number of images / total number of wnids`.
 - After 100 steps, initialize a new scene and repeat.
-- `image_dataset.py` will start reasonably fast while capturing larger objects and then slow down as it becomes harder to find smaller objects, to the point where it would take weeks to generate the whole dataset. To handle this, if it took 3 seconds or more to capture an image for 1000 steps, the pixel percent threshold is reduced from 1% to  0% (meaning that if there _any_ pixels with the object's segmentation color appear in the segmentation mask, the image is accepted.)
+- `image_dataset.py` will start reasonably fast while capturing larger objects and then slow down as it becomes harder to find smaller objects, to the point where it would take weeks to generate the whole dataset. To handle this, if it took 3 seconds or more to capture an image for 100 steps, the pixel percent threshold is reduced from 1% to  0% (meaning that if there _any_ pixels with the object's segmentation color appear in the segmentation mask, the image is accepted.)
 - It is possible to stop and restart `image_dataset.py`. When stopped, it will write a `progress.json` save file to the dataset output directory. This file contains the number of images per wnid that have been generated so far, and the `scene_index`, or the index in the array of scenes.
 
 ## Comparison to TDW (`single_object.py`)
