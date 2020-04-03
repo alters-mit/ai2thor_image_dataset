@@ -5,6 +5,8 @@ from typing import List, Dict, Union, Optional
 from PIL import Image
 import json
 from tqdm import tqdm
+from time import clock
+from sys import maxsize
 
 
 class Wnid:
@@ -167,10 +169,17 @@ class ImageDataset:
         # Load a new scene.
         controller = Controller(scene=ImageDataset.SCENES[self.scene_index], gridSize=grid_size, renderObjectImage=True)
 
+        t0 = clock()
+        # The number of times images were acquired very slowly.
+        num_slow_images = 0
+
         while not self.done():
             # Load the next scene and populate it.
             controller.reset(scene=ImageDataset.SCENES[self.scene_index])
-            controller.step(action='InitialRandomSpawn', randomSeed=0, forceVisible=True, numPlacementAttempts=5)
+            controller.step(action='InitialRandomSpawn', randomSeed=ImageDataset.RNG.randint(-maxsize, maxsize),
+                            forceVisible=True, numPlacementAttempts=5)
+
+            accept_all_images = False
 
             for i in range(images_per_scene):
                 # Step through the simulation with a random movement or rotation.
@@ -184,6 +193,7 @@ class ImageDataset:
                 colors, counts = np.unique(event.instance_segmentation_frame.reshape(-1, 3),
                                            return_counts=True,
                                            axis=0)
+                saved_image = False
                 for color, count in zip(colors, counts):
                     for object_color in object_colors:
                         # Match an object to the segmentation mask.
@@ -203,8 +213,23 @@ class ImageDataset:
                                         # Save the image.
                                         else:
                                             self.save_image(event.frame, obj["objectType"], wnid.count, wnid.wnid)
+                                            saved_image = True
+
                                             w = wnid.wnid
                                             self.wnids[w].count += 1
+                if saved_image and not accept_all_images:
+                    t1 = clock()
+                    dt = t1 - t0
+                    t0 = t1
+                    # If this image was acquired slowly, increment the total.
+                    if dt > 3:
+                        num_slow_images += 1
+                    # If there haven't been new images in a while, accept all images.
+                    if num_slow_images >= 1000:
+                        pixel_percent_threshold = 0
+                        accept_all_images = True
+                        print("There haven't been new images in a while... "
+                              "Reducing pixel percent threshold to 0.")
             # Next scene.
             self.increment_scene_index()
 
