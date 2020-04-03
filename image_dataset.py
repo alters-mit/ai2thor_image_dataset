@@ -172,14 +172,13 @@ class ImageDataset:
         t0 = clock()
         # The number of times images were acquired very slowly.
         num_slow_images = 0
+        accept_all_images = False
 
         while not self.done():
             # Load the next scene and populate it.
             controller.reset(scene=ImageDataset.SCENES[self.scene_index])
             controller.step(action='InitialRandomSpawn', randomSeed=ImageDataset.RNG.randint(-maxsize, maxsize),
                             forceVisible=True, numPlacementAttempts=5)
-
-            accept_all_images = False
 
             for i in range(images_per_scene):
                 # Step through the simulation with a random movement or rotation.
