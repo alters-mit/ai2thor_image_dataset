@@ -173,13 +173,17 @@ class ImageDataset:
         # The number of times images were acquired very slowly.
         num_slow_images = 0
         accept_all_images = False
+        bad_scenes: List[int] = list()
 
         while not self.done():
+            while self.scene_index in bad_scenes:
+                self.increment_scene_index()
             # Load the next scene and populate it.
             controller.reset(scene=ImageDataset.SCENES[self.scene_index])
             controller.step(action='InitialRandomSpawn', randomSeed=ImageDataset.RNG.randint(-maxsize, maxsize),
                             forceVisible=True, numPlacementAttempts=5)
 
+            num_images_from_scene = 0
             for i in range(images_per_scene):
                 # Step through the simulation with a random movement or rotation.
                 event = controller.step(action=ImageDataset.ACTIONS[
@@ -199,7 +203,7 @@ class ImageDataset:
                         if object_color == tuple(color):
                             # Save an image tagged as an object if there are enough pixels in the segmentation pass.
                             percent = count / ImageDataset.NUM_PIXELS
-                            if percent > pixel_percent_threshold:
+                            if accept_all_images or percent > pixel_percent_threshold:
                                 for obj in event.metadata["objects"]:
                                     if obj["objectId"] == object_colors[object_color]:
                                         wnid = self.get_wnid(obj["objectType"])
@@ -213,6 +217,7 @@ class ImageDataset:
                                         else:
                                             self.save_image(event.frame, obj["objectType"], wnid.count, wnid.wnid)
                                             saved_image = True
+                                            num_images_from_scene += 1
 
                                             w = wnid.wnid
                                             self.wnids[w].count += 1
@@ -229,6 +234,9 @@ class ImageDataset:
                         accept_all_images = True
                         print("There haven't been new images in a while... "
                               "Reducing pixel percent threshold to 0.")
+            # If there weren't many images from this scene, don't try again.
+            if num_images_from_scene <= 1:
+                bad_scenes.append(self.scene_index)
             # Next scene.
             self.increment_scene_index()
 
