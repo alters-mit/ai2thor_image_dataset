@@ -91,8 +91,8 @@ class ImageDataset:
                     self.wnids.update({wnid: Wnid(wnid=wnid, object_types=[])})
                 self.wnids[wnid].object_types.append(row[0])
 
-        self.train_per_wnid = self.train / len(self.wnids)
-        self.val_per_wnid = self.val / len(self.wnids)
+        self.train_per_wnid = int(self.train / len(self.wnids))
+        self.val_per_wnid = int(self.val / len(self.wnids))
 
         # Load the scene-to-object dictionary.
         scenes_and_objects = json.loads(Path("scenes_and_objects.json").read_text(encoding="utf-8"))
@@ -103,7 +103,6 @@ class ImageDataset:
                 wnid = self.get_wnid(object_type)
                 if wnid is None:
                     continue
-                print(wnid, object_type)
                 train_dir = self.root_dir.joinpath(f"train/{wnid.wnid}")
                 val_dir = self.root_dir.joinpath(f"val/{wnid.wnid}")
                 wnid_train = len(listdir(str(train_dir.resolve()))) if train_dir.exists() else 0
@@ -142,7 +141,7 @@ class ImageDataset:
             object_count = count
         else:
             dest = self.root_dir.joinpath("val").joinpath(wnid)
-            object_count = count - int(self.train_per_wnid)
+            object_count = count - self.train_per_wnid
         if not dest.exists():
             dest.mkdir(parents=True)
 
