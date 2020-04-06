@@ -33,9 +33,10 @@ python3 image_dataset.py [ARGUMENTS]
 - For 100 steps, apply a random movement or rotation action
 - Parse the segmentation mask from the step. For each object occupying >=1% of the pixels in the segmentation mask, save that image. 
   - This means that the same image may be saved multiple times, e.g. an image with a desk and a chair can be saved as `desk_0000.jpg` and `chair_0000.jpg`.
-  - Images are saved to `train/` and `val/` subdirectories with "wnid" (or ImageNet synset ID) names, using the file `object_types.csv`, which maps the AI2-Thor object type to wnid.
+  - Images are saved to `train/` and `val/` subdirectories with "wnid" (or ImageNet synset ID) names, using the file `object_types.csv`, which maps the AI2-Thor object type to wnid ([source](https://ai2thor.allenai.org/ithor/documentation/objects/object-types/)).
   - The target number of objects per wnid is: `total number of images / total number of wnids`.
-- After 100 steps, initialize a new scene and repeat.
+- After 100 steps, initialize a new scene and repeat. 
+  - Evaluate which _scene types_ are still valid using data from `scenes_and_objects.json`. Each key is a AI2-Thor "scene type" and each value is a list of AI2-Thor object types in the scene ([source](https://ai2thor.allenai.org/ithor/documentation/objects/object-locations/)). If we have enough images of each object type in the scene, skip all scenes of that type.
 - `image_dataset.py` will start reasonably fast while capturing larger objects and then slow down as it becomes harder to find smaller objects, to the point where it would take weeks to generate the whole dataset. To handle this, if it took 3 seconds or more to capture an image for 100 steps, the pixel percent threshold is reduced from 1% to  0% (meaning that if there _any_ pixels with the object's segmentation color appear in the segmentation mask, the image is accepted.)
 - It is possible to stop and restart `image_dataset.py`. When stopped, it will write a `progress.json` save file to the dataset output directory. This file contains the number of images per wnid that have been generated so far, and the `scene_index`, or the index in the array of scenes.
 

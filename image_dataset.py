@@ -39,7 +39,7 @@ class ImageDataset:
     SCENE_TYPES: Dict[str, Tuple[int, int]] = {"Kitchen": (1, 30),
                                                "LivingRoom": (201, 230),
                                                "Bedroom": (301, 330),
-                                               "Bathroom": (401, 431)}
+                                               "Bathroom": (401, 430)}
 
     # The avatar will randomly choose one of these actions per step.
     ACTIONS = ["RotateRight", "RotateLeft", "LookUp", "LookDown", "MoveAhead", "MoveRight", "MoveLeft", "MoveBack"]
@@ -55,6 +55,8 @@ class ImageDataset:
             root_dir = Path(root_dir)
 
         self.progress_filepath = root_dir.joinpath("progress.json")
+        # Load the scene-to-object dictionary.
+        self.scenes_and_objects = json.loads(Path("scenes_and_objects.json").read_text(encoding="utf-8"))
 
         # Create an images/ directory.
         root_dir = root_dir.joinpath("images")
@@ -94,26 +96,25 @@ class ImageDataset:
         self.train_per_wnid = int(self.train / len(self.wnids))
         self.val_per_wnid = int(self.val / len(self.wnids))
 
-        # Load the scene-to-object dictionary.
-        scenes_and_objects = json.loads(Path("scenes_and_objects.json").read_text(encoding="utf-8"))
-        self.scenes: List[str] = []
+    def get_scenes(self) -> List[str]:
+        """
+        Returns a list of scenes that have object types that there aren't enough images for yet.
+        """
+
+        scenes: List[str] = []
         good_scene_types = set()
-        for scene_type in scenes_and_objects:
-            for object_type in scenes_and_objects[scene_type]:
+        for scene_type in self.scenes_and_objects:
+            for object_type in self.scenes_and_objects[scene_type]:
                 wnid = self.get_wnid(object_type)
                 if wnid is None:
                     continue
-                train_dir = self.root_dir.joinpath(f"train/{wnid.wnid}")
-                val_dir = self.root_dir.joinpath(f"val/{wnid.wnid}")
-                wnid_train = len(listdir(str(train_dir.resolve()))) if train_dir.exists() else 0
-                wnid_val = len(listdir(str(val_dir.resolve()))) if val_dir.exists() else 0
-                # Include this scene type if there aren't enough images.
-                if wnid_train < self.train_per_wnid or wnid_val < self.val_per_wnid:
+                if wnid.count < self.train_per_wnid + self.val_per_wnid:
                     good_scene_types.update({scene_type})
         # Append the names of good scenes.
         for scene_type in good_scene_types:
             for i in range(ImageDataset.SCENE_TYPES[scene_type][0], ImageDataset.SCENE_TYPES[scene_type][1] + 1):
-                self.scenes.append(f"FloorPlan{i}")
+                scenes.append(f"FloorPlan{i}")
+        return scenes
 
     def done(self) -> bool:
         """
@@ -151,15 +152,6 @@ class ImageDataset:
         # Increment the progress bar.
         self.pbar.update(1)
 
-    def increment_scene_index(self) -> None:
-        """
-        Increment the scene index value and loop back to 0 if needed.
-        """
-
-        self.scene_index += 1
-        if self.scene_index >= len(self.scenes):
-            self.scene_index = 0
-
     def get_wnid(self, object_type: str) -> Optional[Wnid]:
         """
         Returns the wnid associated with the AI2Thor object type.
@@ -185,8 +177,11 @@ class ImageDataset:
 
         if not self.root_dir.exists():
             self.root_dir.mkdir(parents=True)
+        scenes = self.get_scenes()
+        if self.scene_index > len(scenes):
+            self.scene_index = 0
         # Load a new scene.
-        controller = Controller(scene=self.scenes[self.scene_index], gridSize=grid_size, renderObjectImage=True)
+        controller = Controller(scene=scenes[self.scene_index], gridSize=grid_size, renderObjectImage=True)
 
         t0 = clock()
         # The number of times images were acquired very slowly.
@@ -194,7 +189,7 @@ class ImageDataset:
 
         while not self.done():
             # Load the next scene and populate it.
-            controller.reset(scene=self.scenes[self.scene_index])
+            controller.reset(scene=scenes[self.scene_index])
             controller.step(action='InitialRandomSpawn', randomSeed=ImageDataset.RNG.randint(-maxsize, maxsize),
                             forceVisible=True, numPlacementAttempts=5)
 
@@ -249,8 +244,12 @@ class ImageDataset:
                         accept_all_images = True
                         print("There haven't been new images in a while... "
                               "Reducing pixel percent threshold to 0.")
-            # Next scene.
-            self.increment_scene_index()
+            # Re-evalute which scenes still have objects we need images for.
+            # Go to the next scene.
+            scenes = self.get_scenes()
+            self.scene_index += 1
+            if self.scene_index >= len(scenes):
+                self.scene_index = 0
 
     def end(self) -> None:
         """
