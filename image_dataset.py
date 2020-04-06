@@ -1,12 +1,13 @@
 from ai2thor.controller import Controller
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Union, Optional, Tuple
 from PIL import Image
 import json
 from tqdm import tqdm
 from time import clock
 from sys import maxsize
+from os import listdir
 
 
 class Wnid:
@@ -34,16 +35,11 @@ class ImageDataset:
     RNG = np.random.RandomState(0)
     NUM_PIXELS = 300.0 * 300
 
-    # Every valid AI2-Thor scene name.
-    SCENES: List[str] = []
-    for i in range(1, 31):
-        SCENES.append(f"FloorPlan{i}")
-    for i in range(201, 231):
-        SCENES.append(f"FloorPlan{i}")
-    for i in range(301, 331):
-        SCENES.append(f"FloorPlan{i}")
-    for i in range(401, 431):
-        SCENES.append(f"FloorPlan{i}")
+    # Every scene in AI2-Thor sorted by scene type. The tuple is the range of scene names e.g. FloorPlan1 - FloorPlan30.
+    SCENE_TYPES: Dict[str, Tuple[int, int]] = {"Kitchen": (1, 30),
+                                               "LivingRoom": (201, 230),
+                                               "Bedroom": (301, 330),
+                                               "Bathroom": (401, 431)}
 
     # The avatar will randomly choose one of these actions per step.
     ACTIONS = ["RotateRight", "RotateLeft", "LookUp", "LookDown", "MoveAhead", "MoveRight", "MoveLeft", "MoveBack"]
@@ -98,6 +94,28 @@ class ImageDataset:
         self.train_per_wnid = self.train / len(self.wnids)
         self.val_per_wnid = self.val / len(self.wnids)
 
+        # Load the scene-to-object dictionary.
+        scenes_and_objects = json.loads(Path("scenes_and_objects.json").read_text(encoding="utf-8"))
+        self.scenes: List[str] = []
+        good_scene_types = set()
+        for scene_type in scenes_and_objects:
+            for object_type in scenes_and_objects[scene_type]:
+                wnid = self.get_wnid(object_type)
+                if wnid is None:
+                    continue
+                print(wnid, object_type)
+                train_dir = self.root_dir.joinpath(f"train/{wnid.wnid}")
+                val_dir = self.root_dir.joinpath(f"val/{wnid.wnid}")
+                wnid_train = len(listdir(str(train_dir.resolve()))) if train_dir.exists() else 0
+                wnid_val = len(listdir(str(val_dir.resolve()))) if val_dir.exists() else 0
+                # Include this scene type if there aren't enough images.
+                if wnid_train < self.train_per_wnid or wnid_val < self.val_per_wnid:
+                    good_scene_types.update({scene_type})
+        # Append the names of good scenes.
+        for scene_type in good_scene_types:
+            for i in range(ImageDataset.SCENE_TYPES[scene_type][0], ImageDataset.SCENE_TYPES[scene_type][1] + 1):
+                self.scenes.append(f"FloorPlan{i}")
+
     def done(self) -> bool:
         """
         Returns true if the dataset is done.
@@ -140,7 +158,7 @@ class ImageDataset:
         """
 
         self.scene_index += 1
-        if self.scene_index >= len(ImageDataset.SCENES):
+        if self.scene_index >= len(self.scenes):
             self.scene_index = 0
 
     def get_wnid(self, object_type: str) -> Optional[Wnid]:
@@ -169,7 +187,7 @@ class ImageDataset:
         if not self.root_dir.exists():
             self.root_dir.mkdir(parents=True)
         # Load a new scene.
-        controller = Controller(scene=ImageDataset.SCENES[self.scene_index], gridSize=grid_size, renderObjectImage=True)
+        controller = Controller(scene=self.scenes[self.scene_index], gridSize=grid_size, renderObjectImage=True)
 
         t0 = clock()
         # The number of times images were acquired very slowly.
@@ -177,7 +195,7 @@ class ImageDataset:
 
         while not self.done():
             # Load the next scene and populate it.
-            controller.reset(scene=ImageDataset.SCENES[self.scene_index])
+            controller.reset(scene=self.scenes[self.scene_index])
             controller.step(action='InitialRandomSpawn', randomSeed=ImageDataset.RNG.randint(-maxsize, maxsize),
                             forceVisible=True, numPlacementAttempts=5)
 
@@ -268,6 +286,6 @@ if __name__ == "__main__":
 
     image_dataset = ImageDataset(output_dir)
     try:
-        image_dataset.run(accept_all=args.accept_all)
+        image_dataset.run(accept_all_images=args.accept_all)
     finally:
         image_dataset.end()
