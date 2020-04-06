@@ -155,13 +155,15 @@ class ImageDataset:
                 return self.wnids[w]
         return None
 
-    def run(self, grid_size: float = 0.25, images_per_scene: int = 100, pixel_percent_threshold: float = 0.01) -> None:
+    def run(self, accept_all_images: bool = False, grid_size: float = 0.25, images_per_scene: int = 100,
+            pixel_percent_threshold: float = 0.01) -> None:
         """
         Generate an image dataset.
 
+        :param accept_all_images: If true, set the pixel percent threshold to 0.
         :param grid_size: The AI2Thor room grid size (see AI2Thor documentation).
         :param images_per_scene: Capture this many images before loading a new scene.
-        :param pixel_percent_threshold: Objects must occupy >= this percentage of pixels in the segmentation mask to be saved to disk as an image.
+        :param pixel_percent_threshold: Objects must occupy >= this % of pixels in the segmentation mask to be saved to disk as an image.
         """
 
         if not self.root_dir.exists():
@@ -172,12 +174,8 @@ class ImageDataset:
         t0 = clock()
         # The number of times images were acquired very slowly.
         num_slow_images = 0
-        accept_all_images = False
-        bad_scenes: List[int] = list()
 
         while not self.done():
-            while self.scene_index in bad_scenes:
-                self.increment_scene_index()
             # Load the next scene and populate it.
             controller.reset(scene=ImageDataset.SCENES[self.scene_index])
             controller.step(action='InitialRandomSpawn', randomSeed=ImageDataset.RNG.randint(-maxsize, maxsize),
@@ -234,9 +232,6 @@ class ImageDataset:
                         accept_all_images = True
                         print("There haven't been new images in a while... "
                               "Reducing pixel percent threshold to 0.")
-            # If there weren't many images from this scene, don't try again.
-            if num_images_from_scene <= 1:
-                bad_scenes.append(self.scene_index)
             # Next scene.
             self.increment_scene_index()
 
@@ -262,6 +257,8 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--dir", type=str, default="ai2thor_image_dataset", help="Root output directory in <home>/")
     parser.add_argument("--new", action="store_true", help="Delete an existing dataset at the output directory.")
+    parser.add_argument("--accept_all", action="store_true",
+                        help="Save an image if any pixels of the segmentation mask are an object's segmentation color.")
     args = parser.parse_args()
 
     output_dir = Path.home().joinpath(args.dir)
@@ -271,6 +268,6 @@ if __name__ == "__main__":
 
     image_dataset = ImageDataset(output_dir)
     try:
-        image_dataset.run()
+        image_dataset.run(accept_all=args.accept_all)
     finally:
         image_dataset.end()

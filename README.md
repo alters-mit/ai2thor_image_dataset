@@ -21,10 +21,11 @@ It can be compared to the TDW use case controller `single_object.py`.
 python3 image_dataset.py [ARGUMENTS]
 ```
 
-| Argument | Type | Default                 | Description                                                  |
-| -------- | ---- | ----------------------- | ------------------------------------------------------------ |
-| `--dir`  | str  | `ai2thor_image_dataset` | Root output directory relative to `<home>/`                  |
-| `--new`  |      |                         | If included, delete an existing dataset at the output directory. |
+| Argument       | Type | Default                 | Description                                                  |
+| -------------- | ---- | ----------------------- | ------------------------------------------------------------ |
+| `--dir`        | str  | `ai2thor_image_dataset` | Root output directory relative to `<home>/`                  |
+| `--new`        |      |                         | If included, delete an existing dataset at the output directory. |
+| `--accept_all` |      |                         | If included, if *any* pixels in the segmentation mask are an object's segmentation color, save an image labeled as the object. |
 
 ## How It Works
 
