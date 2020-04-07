@@ -24,17 +24,12 @@ Plate,n03176386
 DiningTable,n03201208
 CounterTop,n03118245
 GarbageCan,n02747177
-Omelette,n07842753
-EggShell,n09432430
-Container,n03094503
 Cup,n03147509
 ButterKnife,n02928049
 Statue,n04306847
-Sandwich,n07695965
 Television,n04404412
 HousePlant,n13083023
 TissueBox,n15074962
-VacuumCleaner,n04517823
 Painting,n00609236
 WateringCan,n04560292
 Laptop,n03642806
@@ -43,7 +38,6 @@ Box,n00135148
 Newspaper,n03822171
 PaintingHanger,n00609236
 KeyChain,n03615037
-Dirt,n07223811
 CellPhone,n02992529
 CreditCard,n13376012
 Cloth,n03309808
@@ -58,13 +52,11 @@ SoapBar,n02797455
 ShowerDoor,n04209239
 SprayBottle,n02682922
 ScrubBrush,n04156140
-ToiletPaperRoll,n15075298
 Lamp,n03636248
 LightSwitch,n04445952
 Bed,n02818832
 Book,n02870092
 AlarmClock,n02694662
-SportsEquipment,n04285146
 Pen,n01858845
 Pencil,n03908204
 Blinds,n04589190
@@ -77,7 +69,6 @@ Dresser,n03015254
 Desk,n03179701
 SideTable,n03063968
 Pillow,n03938244
-Bench,n02828884
 Cart,n02970849
 ShowerGlass,n04209239
 DeskLamp,n04380533
@@ -107,7 +98,6 @@ Kettle,n03612814
 LaundryHamper,n03050864
 LaundryHamperLid,n03050864
 Ottoman,n03380724
-PaperTowel,n03887697
 PepperShaker,n03914438
 Safe,n04125021
 SaltShaker,n04131690
